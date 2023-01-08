@@ -1,33 +1,47 @@
+import org.hamcrest.MatcherAssert;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 import org.openqa.selenium.*;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.interactions.Actions;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 
-public class Rgs {
-    WebDriver driver;
-    WebDriverWait wait;
 
-    @Before
-    public void before() {
-        System.setProperty("webdriver.chrome.driver", "src/test/resources/chromedriver.exe");
-        driver = new ChromeDriver();
-        driver.manage().window().maximize();
-        driver.manage().timeouts().implicitlyWait(10, TimeUnit.SECONDS);
-        driver.get("https://www.rgs.ru/");
-        wait = new WebDriverWait(driver, 10, 2000);
+import static org.hamcrest.CoreMatchers.*;
+@RunWith(Parameterized.class)
+
+public class Rgs extends BaseTests{
+
+    @Parameterized.Parameters
+    public static Iterable<Object[]> data(){
+        return Arrays.asList(new Object[][]{
+            {"Чадова Екатерина Эдуардовна", "(915) 744-6770", "г. Краснодар ул. Автомеханическа 2 кв 42"},
+            {"Маслова Анна Николаевна", "(955) 698-7463", "г. Архангельск ул. Красная 45 кв 5"},
+            {"Кривоульский Николай Инокеньтьевич", "(906) 581-3354", "г. Москва ул. Зеленая 14 кв 158"}
+        });
     }
 
+    @Parameterized.Parameter(value = 0)
+    public String name;
+
+    @Parameterized.Parameter(1)
+    public String userTel;
+
+    @Parameterized.Parameter(2)
+    public String address;
     @Test
     public void test() {
 
-        //проверка прогрузлась ли страничка
+        //проверка прогрузлась ли страничка (сменить хпаф)
 
         WebElement rgsHeader = driver.findElement(By.xpath("//*[@href='/_nuxt/899884925b8dc4a0739fbf18928f3cd4.svg#i-logotype']"));
         Assert.assertTrue("Страничка https://www.rgs.ru/ не загрузилась", rgsHeader.isDisplayed());
@@ -37,7 +51,7 @@ public class Rgs {
         WebElement company = driver.findElement(By.xpath("//a[contains(@href,'companies')]"));
         company.click();
 
-        //Заходим во фрейм и закрываем его
+        //Заходим во фрейм и закрываем его(сменить хпаф)
 
         driver.switchTo().frame(driver.findElement(By.xpath("//iframe[@id='fl-616371']")));
         driver.findElement(By.xpath("//div [@data-fl-track='click-close-login']")).click();
@@ -66,8 +80,8 @@ public class Rgs {
 
         WebElement insuranceHeader = driver.findElement(By.xpath("//h1[@class='title word-breaking title--h2']"));
         Assert.assertTrue("Страничка 'Добровольное медицинское страхование' не загрузилась", insuranceHeader.isDisplayed());
-        String errorMassage = "Текст заголовка страницы не совпал \n";
-        Assert.assertEquals(errorMassage, "Добровольное медицинское страхование", insuranceHeader.getText());
+        MatcherAssert.assertThat("Текст заголовка страницы не совпал \n",  insuranceHeader.getText(),allOf(containsString("медицинское"),
+                endsWith("страхование"), startsWith("Добровольное")));
 
 
         try {
@@ -76,35 +90,33 @@ public class Rgs {
             throw new RuntimeException(e);
         }
         //заполнение формы
-        fullInputField(driver.findElement(By.xpath("//input[@name='userName']")), "Чадова Екатерина Эдуардовна");
-        fullInputPhone(driver.findElement(By.xpath("//input[@name='userTel']")), "(915) 744-6770");
-        EqualsPhone(driver.findElement(By.xpath("//input[@name='userTel']")), "(915) 744-6770");
+        fullInputField(driver.findElement(By.xpath("//input[@name='userName']")), name);
+        fullInputPhone(driver.findElement(By.xpath("//input[@name='userTel']")), userTel);
+        equalsPhone(driver.findElement(By.xpath("//input[@name='userTel']")), userTel);
         fullInputField(driver.findElement(By.xpath("//input[@name='userEmail']")), "qwertyqwerty");
-        fullInputField(driver.findElement(By.xpath("//input[@class='vue-dadata__input']")), "г. Краснодар ул. Автомеханическа 2 кв 42");
+        fullInputField(driver.findElement(By.xpath("//input[@class='vue-dadata__input']")), address);
         scrollWithOffset(driver.findElement(By.xpath("//input[@type='checkbox']")), 0, 250);
         driver.findElement(By.xpath("//input[@type='checkbox']/..")).click();
         driver.findElement(By.xpath("//button[@type='submit']")).click();
 
         //Поиск сообщения об ошибке
-        WebElement emailError = driver.findElement(By.xpath("//span[@class = 'input__error text--small' and contains(text(),'почты')]"));
-        Assert.assertTrue("Почта введена не корректно", emailError.isDisplayed());
+        WebElement emailError = driver.findElement(By.xpath("//input[@name='userEmail']/../../span[contains(@class, 'error')]"));
+        Assert.assertTrue("Отсутствует сообщение об ошибке", emailError.isDisplayed());
+        MatcherAssert.assertThat("Текст ошибки не совпал \n",  emailError.getText(), containsString("Введите корректный адрес электронной почты"));
     }
 
     //заполнение поля телефона
-    private void fullInputPhone(WebElement element, String s) {
+    private void fullInputPhone(WebElement element, String value) {
         scrollWithOffset(element, 0, -250);
         waitUntilElementToBeVisibility(element);
         waitUntilElementToBeClicable(element);
         Actions actions = new Actions(driver);
-        actions.pause(1000).moveToElement(element).pause(250).click(element).pause(250).sendKeys(s).build().perform();
+        actions.pause(1000).moveToElement(element).pause(250).click(element).pause(250).sendKeys(value).build().perform();
     }
 
-    //закрываем браузер
 
-    @After
-    public void after() {
-        driver.quit();
-    }
+
+
 
     //скролл до элемета
     private void scrollToElementJs(WebElement element) {
@@ -136,8 +148,9 @@ public class Rgs {
         ((JavascriptExecutor) driver).executeScript(code, element, x, y);
         return element;
     }
-    public void EqualsPhone(WebElement element, String s){
-       String phone = "+7 " + s ;
+
+    public void equalsPhone(WebElement element, String s) {
+        String phone = "+7 " + s;
         boolean checkFlag = wait.until(ExpectedConditions.attributeContains(element, "value", phone));
         Assert.assertTrue("Поле не было заполнено", checkFlag);
     }
